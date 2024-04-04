@@ -1,77 +1,91 @@
-# Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-from urllib.error import URLError
-
-import altair as alt
+import streamlit as st
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
 import pandas as pd
 
-import streamlit as st
-from streamlit.hello.utils import show_code
+# Título de la aplicación
+st.title('Aplicación para Predicción con Random Forest')
 
+# Carga de datos Excel
+uploaded_file = st.file_uploader("Cargar un archivo Excel para análisis", type=["xlsx", "xls"])
+if uploaded_file is not None:
+    df = pd.read_excel(uploaded_file, engine='openpyxl')  # Asegúrate de especificar el motor adecuado
+    # Muestra las primeras filas del conjunto de datos
+    st.write("Vista previa de los datos:", df.head())
 
-def data_frame_demo():
-    @st.cache_data
-    def get_UN_data():
-        AWS_BUCKET_URL = "https://streamlit-demo-data.s3-us-west-2.amazonaws.com"
-        df = pd.read_csv(AWS_BUCKET_URL + "/agri.csv.gz")
-        return df.set_index("Region")
+    # Si el usuario carga el archivo, proceder con el procesamiento
+    if st.button('Entrenar Modelo'):
+        features = ['NoDesembolso', 'RecenciaDesembolso', 'Años', 'Sector', 'SubSector', 'TipodePrestamo', 'Pais', 'IDOperacion']
+        X = df[features]
+        y = df['Porcentaje Acumulado']
+        
+        # Preprocesamiento y modelo
+        categorical_features = ['Sector', 'SubSector', 'TipodePrestamo', 'Pais', 'IDOperacion']
+        numerical_features = ['NoDesembolso', 'RecenciaDesembolso', 'Años']
 
-    try:
-        df = get_UN_data()
-        countries = st.multiselect(
-            "Choose countries", list(df.index), ["China", "United States of America"]
-        )
-        if not countries:
-            st.error("Please select at least one country.")
-        else:
-            data = df.loc[countries]
-            data /= 1000000.0
-            st.write("### Gross Agricultural Production ($B)", data.sort_index())
+        preprocessor = ColumnTransformer(
+            transformers=[
+                ('num', SimpleImputer(strategy='mean'), numerical_features),
+                ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features)
+            ])
 
-            data = data.T.reset_index()
-            data = pd.melt(data, id_vars=["index"]).rename(
-                columns={"index": "year", "value": "Gross Agricultural Product ($B)"}
-            )
-            chart = (
-                alt.Chart(data)
-                .mark_area(opacity=0.3)
-                .encode(
-                    x="year:T",
-                    y=alt.Y("Gross Agricultural Product ($B):Q", stack=None),
-                    color="Region:N",
-                )
-            )
-            st.altair_chart(chart, use_container_width=True)
-    except URLError as e:
-        st.error(
-            """
-            **This demo requires internet access.**
-            Connection error: %s
-        """
-            % e.reason
-        )
+        model = Pipeline(steps=[('preprocessor', preprocessor),
+                                ('regressor', RandomForestRegressor(n_estimators=100, random_state=42))])
 
+        # División de datos y entrenamiento
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        model.fit(X_train, y_train)
 
-st.set_page_config(page_title="DataFrame Demo", page_icon="📊")
-st.markdown("# DataFrame Demo")
-st.sidebar.header("DataFrame Demo")
-st.write(
-    """This demo shows how to use `st.write` to visualize Pandas DataFrames.
-(Data courtesy of the [UN Data Explorer](http://data.un.org/Explorer.aspx).)"""
-)
+        # Predicción y evaluación
+        y_pred = model.predict(X_test)
+        rmse = mean_squared_error(y_test, y_pred, squared=False)
+        r2 = r2_score(y_test, y_pred)
 
-data_frame_demo()
+        # Mostrar métricas
+        st.write(f"RMSE: {rmse}")
+        st.write(f"R^2: {r2}")
 
-show_code(data_frame_demo)
+        # Crea secciones en tu aplicación para las entradas del usuario
+        st.header('Entradas para Predicción de Porcentaje Acumulado')
+
+        # Para demostración, aquí definimos manualmente las opciones
+        # En una aplicación real, considera extraer estos valores de tu conjunto de datos o definirlos según tu conocimiento
+        categorical_options = {
+            'Sector': ['SOC', 'INF', 'PRO'],
+            'SubSector': ['AYS', 'TYL', 'SYE','PRO','GOB','VDU','AMB','FIN','ENE'],
+            'TipodePrestamo': ['EMERGENCIA', 'PRÉSTAMO', 'PROGRAMA GLOBAL DE OBRAS MULTIPLES', 'PROYECTOS ESPECIFICOS DE INVERSION','PROGRAMA EN FUNCION DE RESULTADOS', 'PROGRAMA PARA EL FINANCIAMIENTO PROPORCIONAL DE INVERSIONES'],
+            'Pais': ['ARGENTINA', 'BOLIVIA', 'BRASIL', 'PARAGUAY', 'URUGUA'],
+            'IDOperacion' :['AR019_1' ,'AR020_1', 'AR021_1', 'AR022_1', 'AR024_1', 'AR025_1', 'AR026_1', 'AR027_1', 'AR028_1', 'AR030_1', 'AR031_1', 'AR031_2', 'AR033_1', 'AR036_1', 'AR037_1', 'AR038_1', 'AR040_1', 'AR043_1', 'AR043_2', 'AR044_1', 'AR044_2', 'AR046_1', 'AR048_1', 'AR050_1', 'BO020_1', 'BO021_1', 'BO022_1', 'BO023_1', 'BO024_1', 'BO025_1', 'BO028_1', 'BO029_1', 'BO030_1', 'BO032_1', 'BO032_2', 'BR016_1', 'BR025_1', 'PY020_1', 'PY020_2', 'PY021_1', 'PY026_1', 'UR014_1', 'UR016_1', 'UR017_1', 'UR018_1', 'UR019_1', 'UR020_1', 'UR021_1', 'UR022_1', 'UR023_1', 'UR024_1']
+        }
+
+        # Características categóricas: para cada una, creamos un selectbox con las opciones
+        inputs_categorical = {
+            feature: st.selectbox(f"{feature}", options=options)
+            for feature, options in categorical_options.items()
+        }
+
+        # Características numéricas: para cada una, creamos un input numérico
+        numerical_features = ['NoDesembolso', 'RecenciaDesembolso', 'Años']
+        inputs_numerical = {
+            feature: st.number_input(f"{feature}", step=1.0)
+            for feature in numerical_features
+        }
+
+        if st.button('Predecir'):
+            # Combina inputs numéricos y categóricos en un único DataFrame
+            input_data = {**inputs_numerical, **inputs_categorical}
+            input_df = pd.DataFrame([input_data])
+
+            # Asegúrate de que las columnas sigan el orden correcto
+            input_df = input_df[features]
+
+            # Realiza la predicción
+            prediction = model.predict(input_df)
+
+            # Muestra la predicción
+            st.write(f"Predicción de Porcentaje Acumulado: {prediction[0]}")

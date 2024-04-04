@@ -4,6 +4,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numpy import polyfit, poly1d
 from sklearn.metrics import r2_score
+import io
+
+def dataframe_to_excel_bytes(df):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='Sheet1')
+    excel_bytes = output.getvalue()
+    return excel_bytes
 
 # Función para calcular y graficar R^2 y las líneas de tendencia
 def calculate_and_plot_r2_for_country(df, country):
@@ -50,7 +58,14 @@ def app():
         # Filtrar el DataFrame según los IDOperacion especificados
         df_filtered_specified = df_filtered[df_filtered['IDOperacion'].isin(specified_id_list)]
         st.write(df_filtered_specified)
-
+        # Convertir el DataFrame a bytes y agregar botón de descarga para ambas tablas
+        excel_bytes_monto = dataframe_to_excel_bytes(df_filtered_specified)
+        st.download_button(
+            label="Descargar DataFrame en Excel",
+            data=excel_bytes_monto,
+            file_name="IDOperaciones.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
         if st.button('Calcular R^2 y mostrar gráfico'):
             calculate_and_plot_r2_for_country(df_filtered_specified[df_filtered_specified['Pais'] == selected_country], selected_country)
 
