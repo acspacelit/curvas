@@ -57,15 +57,6 @@ def app():
 
         # Filtrar el DataFrame según los IDOperacion especificados
         df_filtered_specified = df_filtered[df_filtered['IDOperacion'].isin(specified_id_list)]
-        st.write(df_filtered_specified)
-        # Convertir el DataFrame a bytes y agregar botón de descarga para ambas tablas
-        excel_bytes_monto = dataframe_to_excel_bytes(df_filtered_specified)
-        st.download_button(
-            label="Descargar DataFrame en Excel",
-            data=excel_bytes_monto,
-            file_name="IDOperaciones.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
         if st.button('Calcular R^2 y mostrar gráfico'):
             calculate_and_plot_r2_for_country(df_filtered_specified[df_filtered_specified['Pais'] == selected_country], selected_country)
 

@@ -52,7 +52,6 @@ def process_data(df_operaciones):
     merged_df['Porcentaje'] = ((merged_df['Monto'] / merged_df['AporteFONPLATAVigente']) * 100).round(2)
     filtered_df = merged_df[merged_df['Ano'] >= 0]
     filtered_df['Ano'] = filtered_df['Ano'].astype(int)
-    st.write(filtered_df)
 
     
 
